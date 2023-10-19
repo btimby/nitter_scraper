@@ -16,7 +16,6 @@ pydantic = "^1.6.1"
 pendulum = "^2.1.2"
 loguru = "^0.5.1"
 docker = "^4.3.1"
-jinja2 = "^2.11.2"
 
 [tool.poetry.dev-dependencies]
 pytest-watch = "^4.2.0"

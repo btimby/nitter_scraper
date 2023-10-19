@@ -8,13 +8,55 @@ from typing import ClassVar, Optional
 import docker
 from docker.client import DockerClient
 from docker.models.containers import Container
-from jinja2 import Environment, FileSystemLoader
 from loguru import logger
 from pydantic import BaseModel as Base
 
-from nitter_scraper.paths import PROJECT_ROOT, TEMPLATES_DIRECTORY  # noqa: I202, I100
+from nitter_scraper.paths import PROJECT_ROOT  # noqa: I202, I100
 from nitter_scraper.profile import get_profile  # noqa: I202, I100
 from nitter_scraper.tweets import get_tweets  # noqa: I202, I100
+
+
+# used to render docker config files.
+TEMPLATE = """[Server]
+address = "%(host)s"
+port = "8080"
+https = false  # disable to enable cookies when not using https
+staticDir = "./public"
+title = "nitter"
+hostname = "nitter.net"
+
+[Cache]
+directory = "./tmp"
+listMinutes = 240  # how long to cache list info (not the tweets, so keep it high)
+rssMinutes = 10  # how long to cache rss queries
+#redisHost = "nitter_redis"
+#redisPort = 6379
+redisConnections = 20 # connection pool size
+redisMaxConnections = 30
+# max, new connections are opened when none are available, but if the pool size
+# goes above this, they're closed when released. don't worry about this unless
+# you receive tons of requests per second
+
+[Config]
+hmacKey = "secretkey" # random key for cryptographic signing of video urls
+base64Media = false # use base64 encoding for proxied media urls
+tokenCount = 10
+# minimum amount of usable tokens. tokens are used to authorize API requests,
+# but they expire after ~1 hour, and have a limit of 187 requests.
+# the limit gets reset every 15 minutes, and the pool is filled up so there's
+# always at least $tokenCount usable tokens. again, only increase this if
+# you receive major bursts all the time
+
+# Change default preferences here, see src/prefs_impl.nim for a complete list
+[Preferences]
+theme = "Nitter"
+replaceTwitter = "nitter.net"
+replaceYouTube = "invidious.snopyta.org"
+replaceInstagram = ""
+proxyVideos = true
+hlsPlayback = false
+infiniteScroll = false
+"""
 
 
 class DockerBase(Base):
@@ -81,9 +123,7 @@ class Nitter(DockerBase):
         return {self.config_filepath: volumes}
 
     def _render_config(self):
-        env = Environment(loader=FileSystemLoader(TEMPLATES_DIRECTORY))
-        template = env.get_template("nitter.conf")
-        return template.render(self.dict())
+        return TEMPLATE % self.dict()
 
     def _create_configfile(self):
         config = self._render_config()
